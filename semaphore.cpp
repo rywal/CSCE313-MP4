@@ -16,23 +16,34 @@ Semaphore::Semaphore(int _val){
 }
 
 Semaphore::~Semaphore(){
-    delete counter;
     pthread_mutex_destroy(&m);
     pthread_cont_destroy(&m);
 }
 
 int Semaphore::P(){
-    pthread_mutex_lock(&m);
+    int error;
+    
+    if((error = pthread_mutex_lock(&m)) != 0)
+        return error;
+    
     counter--;
     if(counter < 0)
         pthread_cond_wait(&c, &m);
-    pthread_mutex_unlock(&m);
+    
+    if((error = pthread_mutex_unlock(&m)) != 0)
+        return error;
+    
+    return counter;
 }
 
 int Semaphore::V(){
-    pthread_mutex_lock(&m);
-    counter++;
+    int error;
+    if((error = pthread_mutex_lock(&m)) != 0)
+        return error;
+    counter+;
     if(counter <= 0)
-        pthread_cond_signal(&c);
-    pthread_mutex_unlock(&m);
+        pthread_cond_wait(&c, &m);
+    if((error = pthread_mutex_unlock(&m)) != 0)
+        return error;
+    return counter;
 }

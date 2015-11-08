@@ -2,11 +2,11 @@
 # adding capability to use makefile in various environments without modifications
 UNAME := $(shell uname)
 ifeq ($(UNAME), Darwin)
-cc = clang++
+    cc = clang++
 else ifeq ($(UNAME), Darwin)
-cc = g++
+    cc = g++
 else
-cc = g++-4.7
+    cc = g++-4.7
 endif
 
 all: dataserver simpleclient
