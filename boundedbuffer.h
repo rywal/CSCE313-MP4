@@ -66,7 +66,7 @@ public:
         full->P();
         
         mut->P(); // Lock with semaphore of size 1, preventing others from using it
-        Response *output = data.back(); // NOW we can safely change the data
+        Response output = data.back(); // NOW we can safely change the data
         data.pop_back();
         mut->V(); // Unlock to resume modifications
         
