@@ -21,14 +21,19 @@
 
 #include <cassert>
 #include <cstring>
+#include <stdint.h>
 #include <iostream>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <vector>
 
 #include <errno.h>
 #include <unistd.h>
 
 #include "reqchannel.h"
+#include "boundedbuffer.h"
+
+#define NUM_PEOPLE 3
 
 using namespace std;
 
@@ -40,18 +45,17 @@ using namespace std;
 //     index 0 - Joe Smith
 //     index 1 - Jane Smith
 //     index 2 - John Doe
-int num_request_threads = 3;
-int request_counts[num_request_threads];
-vector<int>[num_request_threads] histograms;
+int num_request_threads = NUM_PEOPLE;
+int request_counts[NUM_PEOPLE];
 
 int num_requests = 10000;
 int num_worker_threads = 15;
 int buffer_size = 500;
 
-BoundedBuffer* buffer;
-BoundedBuffer[num_request_threads]* response_buffers;
+BoundedBuffer buffer;
+BoundedBuffer response_buffers[NUM_PEOPLE];
 
-int histograms[num_request_threads][100]; // 100 possible numbers for each of the request threads
+int histograms[NUM_PEOPLE][100]; // 100 possible numbers for each of the request threads
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -68,16 +72,17 @@ void* request_thread(void* req_id) {
     const string request_names[3] = {"Joe Smith", "Jane Smith", "John Doe"};
     
     for(int i = 0; i < num_requests; i++){
-        Response res* = new Response("something", request_id, 0);
+        Response res = Response("something", request_id, 0);
         request_counts[i]++;
-        r->data = "data " + request_names[i];
-        r->req_id = request_id;
-        r->req_number = request_counts[i];
-        buffer->push(*res);
-        delete res;
+        res.data = "data " + request_names[i];
+        res.req_id = request_id;
+        res.req_number = request_counts[i];
+        buffer.push(res);
     }
     
-    cout << "Performed " << num_requests << " requests for req_id " << request_id ". Exiting request thread...\n";
+    cout << "Performed " << num_requests << " requests for req_id " << request_id << ". Exiting request thread...\n";
+
+    return 0;
 }
 
 // Function to be performed by worker thread
@@ -88,17 +93,19 @@ void* worker_thread(void* channel_id) {
     // Keep sending responses from buffer until told to 'quit'
     while(true){
         // Pull next response from buffer
-        response = buffer->pop();
+        response = buffer.pop();
         
         // Quit if told to
         if(response.data == "quit") break;
         
         // Send request, and save response to appropriate buffer
         string reply = channel->send_request(response.data);
-        response_buffers[response->req_id]->push(response);
+        response_buffers[response.req_id].push(response);
     }
     channel->send_request("quit");
     cout << "Worker thread for channel " << channel_id << " quit\n";
+    
+    return 0;
 }
 
 // Function to be performed by stats thread
@@ -107,11 +114,13 @@ void* stats_thread(void* req_id) {
     
     Response res("something", -1, -1);
     for(int i = 0; i < num_requests; i++){
-        res = response_buffers[request_id]->pop();
-        histograms[request_id][(int)res.data]++;
+        res = response_buffers[request_id].pop();
+        histograms[request_id][atoi(res.data.c_str())]++;
     }
     
     cout << "Stats thread for request " << request_id << " finished\n";
+    
+    return 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -123,9 +132,9 @@ int main(int argc, char * argv[]) {
     pthread_t worker_threads[num_worker_threads];
     pthread_t stats_threads[num_request_threads];
     
-    buffer = new BoundedBuffer(buffer_size);
-    for(int i = 0; i < num_request_threads; i ++) {
-        response_buffers[i] = new BoundedBuffer(buffer_size);
+    buffer = BoundedBuffer(buffer_size);
+    for(int i = 0; i < num_request_threads; i ++)
+        response_buffers[i] = BoundedBuffer(buffer_size);
     
     int pid = fork();
     if (pid == 0) {
@@ -140,7 +149,7 @@ int main(int argc, char * argv[]) {
 
         cout << "Creating request threads...\n";
         for(int i = 0; i < num_request_threads; i++){
-            pthread_create(&request_threads[i], NULL, request_thread, (void*)i);
+            pthread_create(&request_threads[i], NULL, request_thread, (intptr_t*)i);
         }
         
         cout << "Creating worker threads...\n";
@@ -152,7 +161,7 @@ int main(int argc, char * argv[]) {
         
         cout << "Creating stats threads...\n";
         for(int i = 0; i < num_request_threads; i++){
-            pthread_create(&stats_threads[i], NULL, stats_thread, (void*)i);
+            pthread_create(&stats_threads[i], NULL, stats_thread, (intptr_t*)i);
         }
         
         // Join threads
@@ -162,7 +171,7 @@ int main(int argc, char * argv[]) {
         cout << "Stopping worker and stats threads...\n";
         Response quit_response("quit", -1, -1);
         for(int i = 0; i < num_worker_threads; i++)
-            buffer->push(quit_response);
+            buffer.push(quit_response);
         for(int i = 0; i < num_worker_threads; i++)
             pthread_join(worker_threads[i], NULL);
         for(int i = 0; i < num_request_threads; i++)

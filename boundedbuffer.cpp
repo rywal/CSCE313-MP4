@@ -1,5 +1,11 @@
 #include "boundedbuffer.h"
 
+using namespace std;
+
+BoundedBuffer::BoundedBuffer() {
+    
+}
+
 BoundedBuffer::BoundedBuffer(int _size){
     int size = _size;
     full = new Semaphore(0);

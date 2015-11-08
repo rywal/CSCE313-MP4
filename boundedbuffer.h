@@ -31,13 +31,14 @@ private:
     Semaphore* mut;
     
     int size;
-    vector<response> data; // Main data structure that we want to make thread-safe
+    vector<Response> data; // Main data structure that we want to make thread-safe
     
 public:
+    BoundedBuffer();
     BoundedBuffer(int _size);
     ~BoundedBuffer();
-    void push();
-    string pop();
+    void push(Response item);
+    Response pop();
 };
 
 #endif
