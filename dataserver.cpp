@@ -84,6 +84,7 @@ void * handle_data_requests(void * args) {
   // -- Client has quit. We remove channel.
  
   delete data_channel;
+    return NULL;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -121,7 +122,7 @@ void process_newthread(RequestChannel & _channel, const string & _request) {
 
   pthread_t thread_id;
   //  cout << "starting new thread " << nthreads << endl;
-  if (error = pthread_create(& thread_id, NULL, handle_data_requests, data_channel)) {
+  if ((error = pthread_create(& thread_id, NULL, handle_data_requests, data_channel))) {
     fprintf(stderr, "p_create failed: %s\n", strerror(error));
   }  
 

@@ -41,25 +41,25 @@
 
 class Semaphore {
 private:
-  /* -- INTERNAL DATA STRUCTURES
+    /* -- INTERNAL DATA STRUCTURES
      You may need to change them to fit your implementation. */
 
-  int             value;
-  pthread_mutex_t m;
-  pthread_cond_t  c;
+    int             value;
+    pthread_mutex_t m;
+    pthread_cond_t  c;
 
 public:
 
-  /* -- CONSTRUCTOR/DESTRUCTOR */
+    /* -- CONSTRUCTOR/DESTRUCTOR */
 
-  Semaphore(int _val);
+    Semaphore(int _val);
 
-  ~Semaphore();
+    ~Semaphore();
 
-  /* -- SEMAPHORE OPERATIONS */
+    /* -- SEMAPHORE OPERATIONS */
 
-  int P();
-  int V();
+    int P();
+    int V();
 };
 
 

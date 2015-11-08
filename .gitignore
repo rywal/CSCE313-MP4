@@ -1,0 +1,4 @@
+*.o
+*.dSYM
+dataserver
+simpleclient
