@@ -49,7 +49,9 @@ int num_worker_threads = 15;
 int buffer_size = 500;
 
 BoundedBuffer* buffer;
-BoundedBuffer[num_request_threads]* stats_buffer;
+BoundedBuffer[num_request_threads]* response_buffers;
+
+int histograms[num_request_threads][100]; // 100 possible numbers for each of the request threads
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -68,7 +70,7 @@ void* request_thread(void* req_id) {
     for(int i = 0; i < num_requests; i++){
         Response res* = new Response("something", request_id, 0);
         request_counts[i]++;
-        r->data = "data" + request_names[i];
+        r->data = "data " + request_names[i];
         r->req_id = request_id;
         r->req_number = request_counts[i];
         buffer->push(*res);
@@ -80,12 +82,36 @@ void* request_thread(void* req_id) {
 
 // Function to be performed by worker thread
 void* worker_thread(void* channel_id) {
+    RequestChannel *channel = (RequestChannel *) channel_id;
+    Response response("something", 0, 0);
     
+    // Keep sending responses from buffer until told to 'quit'
+    while(true){
+        // Pull next response from buffer
+        response = buffer->pop();
+        
+        // Quit if told to
+        if(response.data == "quit") break;
+        
+        // Send request, and save response to appropriate buffer
+        string reply = channel->send_request(response.data);
+        response_buffers[response->req_id]->push(response);
+    }
+    channel->send_request("quit");
+    cout << "Worker thread for channel " << channel_id << " quit\n";
 }
 
 // Function to be performed by stats thread
 void* stats_thread(void* req_id) {
+    int request_id = *((int *)req_id);
     
+    Response res("something", -1, -1);
+    for(int i = 0; i < num_requests; i++){
+        res = response_buffers[request_id]->pop();
+        histograms[request_id][(int)res.data]++;
+    }
+    
+    cout << "Stats thread for request " << request_id << " finished\n";
 }
 
 /*--------------------------------------------------------------------------*/
@@ -98,7 +124,8 @@ int main(int argc, char * argv[]) {
     pthread_t stats_threads[num_request_threads];
     
     buffer = new BoundedBuffer(buffer_size);
-    joe_buffer = new BoundedBuffer(buffer_size);
+    for(int i = 0; i < num_request_threads; i ++) {
+        response_buffers[i] = new BoundedBuffer(buffer_size);
     
     int pid = fork();
     if (pid == 0) {
@@ -133,7 +160,7 @@ int main(int argc, char * argv[]) {
             pthread_join(request_threads[i], NULL);
         
         cout << "Stopping worker and stats threads...\n";
-        Response quit_response("kill", -1, -1);
+        Response quit_response("quit", -1, -1);
         for(int i = 0; i < num_worker_threads; i++)
             buffer->push(quit_response);
         for(int i = 0; i < num_worker_threads; i++)
