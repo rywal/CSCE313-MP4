@@ -62,7 +62,20 @@ BoundedBuffer[num_request_threads]* stats_buffer;
 /*--------------------------------------------------------------------------*/
 // Function to be performed by request thread
 void* request_thread(void* req_id) {
+    int request_id = *((int*) req_id);
+    const string request_names[3] = {"Joe Smith", "Jane Smith", "John Doe"};
     
+    for(int i = 0; i < num_requests; i++){
+        Response res* = new Response("something", request_id, 0);
+        request_counts[i]++;
+        r->data = "data" + request_names[i];
+        r->req_id = request_id;
+        r->req_number = request_counts[i];
+        buffer->push(*res);
+        delete res;
+    }
+    
+    cout << "Performed " << num_requests << " requests for req_id " << request_id ". Exiting request thread...\n";
 }
 
 // Function to be performed by worker thread
