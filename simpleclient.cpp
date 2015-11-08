@@ -116,12 +116,23 @@ int main(int argc, char * argv[]) {
         }
         
         // Join threads
+        for (int i = 0; i < num_request_threads; i ++)
+            pthread_join(request_threads[i], NULL);
         
+        cout << "Stopping worker and stats threads...\n";
+        Response quit_response("kill", -1, -1);
+        for(int i = 0; i < num_worker_threads; i++)
+            buffer->push(quit_response);
+        for(int i = 0; i < num_worker_threads; i++)
+            pthread_join(worker_threads[i], NULL);
+        for(int i = 0; i < num_request_threads; i++)
+            pthread_join(stats_threads[i], NULL);
         
         string quit_reply = chan.send_request("quit");
         cout << "Reply to request 'quit' is '" << quit_reply << "'" << endl;
         sleep(1); // Waits until server fork is closed
         
         // Echo out statistics and histogram here
+        cout << "Finished\n";
     }
 }
