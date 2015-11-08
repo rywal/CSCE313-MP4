@@ -33,7 +33,7 @@
 #include "reqchannel.h"
 #include "boundedbuffer.h"
 
-#define NUM_PEOPLE 1
+#define NUM_PEOPLE 3
 
 using namespace std;
 
@@ -56,6 +56,7 @@ BoundedBuffer buffer;
 BoundedBuffer response_buffers[NUM_PEOPLE];
 
 int histograms[NUM_PEOPLE][100]; // 100 possible numbers for each of the request threads
+int* name_ids[NUM_PEOPLE];
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -81,7 +82,7 @@ void* request_thread(void* req_id) {
         buffer.push(res);
     }
     
-    cout << "Performed " << num_requests << " requests for req_id " << request_id << ". Exiting request thread...\n";
+    //cout << "Performed " << num_requests << " requests for req_id " << request_id << ". Exiting request thread...\n";
 
     return 0;
 }
@@ -104,7 +105,7 @@ void* worker_thread(void* channel_id) {
         response_buffers[response.req_id].push(response);
     }
     channel->send_request("quit");
-    cout << "Worker thread for channel " << channel_id << " quit\n";
+    //cout << "Worker thread for channel " << channel_id << " quit\n";
     
     return 0;
 }
@@ -119,7 +120,7 @@ void* stats_thread(void* req_id) {
         histograms[request_id][atoi(res.data.c_str())]++;
     }
     
-    cout << "Stats thread for request " << request_id << " finished\n";
+    //cout << "Stats thread for request " << request_id << " finished\n";
     
     return 0;
 }
@@ -129,13 +130,17 @@ void* stats_thread(void* req_id) {
 /*--------------------------------------------------------------------------*/
 
 int main(int argc, char * argv[]) {
-    pthread_t request_threads[num_request_threads];
+    pthread_t request_threads[NUM_PEOPLE];
     pthread_t worker_threads[num_worker_threads];
-    pthread_t stats_threads[num_request_threads];
+    pthread_t stats_threads[NUM_PEOPLE];
     
     buffer = BoundedBuffer(buffer_size);
     for(int i = 0; i < num_request_threads; i ++)
         response_buffers[i] = BoundedBuffer(buffer_size);
+    
+    for(int i = 0; i < NUM_PEOPLE; i++){
+        name_ids[i] = new int(i);
+    }
     
     int pid = fork();
     if (pid == 0) {
@@ -151,7 +156,7 @@ int main(int argc, char * argv[]) {
         cout << "Creating request threads...\n";
         for(int i = 0; i < num_request_threads; i++){
             cout << "Creating request thread with ID " << i << "\n";
-            pthread_create(&request_threads[i], NULL, request_thread, (void*)i);
+            pthread_create(&request_threads[i], NULL, request_thread, (void*)name_ids[i]);
         }
         
         cout << "Creating worker threads...\n";
@@ -163,7 +168,7 @@ int main(int argc, char * argv[]) {
         
         cout << "Creating stats threads...\n";
         for(int i = 0; i < num_request_threads; i++){
-            pthread_create(&stats_threads[i], NULL, stats_thread, (void*)i);
+            pthread_create(&stats_threads[i], NULL, stats_thread, (void*)name_ids[i]);
         }
         
         // Join threads
