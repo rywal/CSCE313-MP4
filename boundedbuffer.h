@@ -10,6 +10,8 @@
 #include <vector>
 #include "semaphore.h"
 
+using namespace std;
+
 class Response {
 public:
     string data;
@@ -34,11 +36,43 @@ private:
     vector<Response> data; // Main data structure that we want to make thread-safe
     
 public:
-    BoundedBuffer();
-    BoundedBuffer(int _size);
-    ~BoundedBuffer();
-    void push(Response item);
-    Response pop();
+    BoundedBuffer() { }
+    
+    BoundedBuffer(int _size){
+        int size = _size;
+        full = new Semaphore(0);
+        empty = new Semaphore(size);
+        mut = new Semaphore(1);
+        
+    }
+    
+    ~BoundedBuffer(){
+        delete full;
+        delete empty;
+        delete mut;
+    }
+    
+    void push(Response item){
+        empty->P(); // When this returns we know for a fact it is empty and ready for manipulation
+        
+        mut->P(); // Lock with semaphore of size 1, preventing others from using it
+        data.push_back(item); // NOW we can safely change the data
+        mut->V(); // Unlock to resume modifications
+        
+        full->V();
+    }
+    
+    Response pop(){
+        full->P();
+        
+        mut->P(); // Lock with semaphore of size 1, preventing others from using it
+        Response *output = data.back(); // NOW we can safely change the data
+        data.pop_back();
+        mut->V(); // Unlock to resume modifications
+        
+        empty->V();
+        return output;
+    }
 };
 
 #endif

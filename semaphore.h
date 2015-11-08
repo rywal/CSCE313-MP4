@@ -51,15 +51,46 @@ private:
 public:
 
     /* -- CONSTRUCTOR/DESTRUCTOR */
-
-    Semaphore(int _val);
-
-    ~Semaphore();
+    Semaphore(int _val){
+        value = _val;
+        pthread_mutex_init(&m, NULL);
+        pthread_cond_init(&c, NULL);
+    }
+    
+    ~Semaphore(){
+        pthread_mutex_destroy(&m);
+        pthread_cond_destroy(&c);
+    }
 
     /* -- SEMAPHORE OPERATIONS */
 
-    int P();
-    int V();
+    int P(){
+        int error;
+        
+        if((error = pthread_mutex_lock(&m)) != 0)
+            return error;
+        
+        value--;
+        if(value < 0)
+            pthread_cond_wait(&c, &m);
+        
+        if((error = pthread_mutex_unlock(&m)) != 0)
+            return error;
+        
+        return value;
+    }
+    
+    int V(){
+        int error;
+        if((error = pthread_mutex_lock(&m)) != 0)
+            return error;
+        value++;
+        if(value <= 0)
+            pthread_cond_wait(&c, &m);
+        if((error = pthread_mutex_unlock(&m)) != 0)
+            return error;
+        return value;
+    }
 };
 
 
