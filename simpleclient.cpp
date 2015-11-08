@@ -36,7 +36,20 @@ using namespace std;
 /* DATA STRUCTURES */ 
 /*--------------------------------------------------------------------------*/
 
-    /* -- (none) -- */
+// Index in request/stats threads represents people:
+//     index 0 - Joe Smith
+//     index 1 - Jane Smith
+//     index 2 - John Doe
+int num_request_threads = 3;
+int request_counts[num_request_threads];
+vector<int>[num_request_threads] histograms;
+
+int num_requests = 10000;
+int num_worker_threads = 15;
+int buffer_size = 500;
+
+BoundedBuffer* buffer;
+BoundedBuffer[num_request_threads]* stats_buffer;
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -47,44 +60,68 @@ using namespace std;
 /*--------------------------------------------------------------------------*/
 /* FORWARDS */
 /*--------------------------------------------------------------------------*/
+// Function to be performed by request thread
+void* request_thread(void* req_id) {
+    
+}
 
-    /* -- (none) -- */
+// Function to be performed by worker thread
+void* worker_thread(void* channel_id) {
+    
+}
+
+// Function to be performed by stats thread
+void* stats_thread(void* req_id) {
+    
+}
 
 /*--------------------------------------------------------------------------*/
 /* MAIN FUNCTION */
 /*--------------------------------------------------------------------------*/
 
 int main(int argc, char * argv[]) {
+    pthread_t request_threads[num_request_threads];
+    pthread_t worker_threads[num_worker_threads];
+    pthread_t stats_threads[num_request_threads];
+    
+    buffer = new BoundedBuffer(buffer_size);
+    joe_buffer = new BoundedBuffer(buffer_size);
+    
+    int pid = fork();
+    if (pid == 0) {
+        //this process is the 'child', so run the dataserver
+        system("./dataserver");
+    } else {
+        cout << "CLIENT STARTED:" << endl;
 
-    cout << "CLIENT STARTED:" << endl;
+        cout << "Establishing control channel... " << flush;
+        RequestChannel chan("control", RequestChannel::CLIENT_SIDE);
+        cout << "done." << endl;;
 
-    cout << "Establishing control channel... " << flush;
-    RequestChannel chan("control", RequestChannel::CLIENT_SIDE);
-    cout << "done." << endl;;
-
-    /* -- Start sending a sequence of requests */
-
-    string reply1 = chan.send_request("hello");
-    cout << "Reply to request 'hello' is '" << reply1 << "'" << endl;
-
-    string reply2 = chan.send_request("data Joe Smith");
-    cout << "Reply to request 'data Joe Smith' is '" << reply2 << "'" << endl;
-
-    string reply3 = chan.send_request("data Jane Smith");
-    cout << "Reply to request 'data Jane Smith' is '" << reply3 << "'" << endl;
-
-    string reply5 = chan.send_request("newthread");
-    cout << "Reply to request 'newthread' is " << reply5 << "'" << endl;
-    RequestChannel chan2(reply5, RequestChannel::CLIENT_SIDE);
-
-    string reply6 = chan2.send_request("data John Doe");
-    cout << "Reply to request 'data John Doe' is '" << reply6 << "'" << endl;
-
-    string reply7 = chan2.send_request("quit");
-    cout << "Reply to request 'quit' is '" << reply7 << "'" << endl;
-
-    string reply4 = chan.send_request("quit");
-    cout << "Reply to request 'quit' is '" << reply4 << "'" << endl;
-
-    usleep(1000000);
+        cout << "Creating request threads...\n";
+        for(int i = 0; i < num_request_threads; i++){
+            pthread_create(&request_threads[i], NULL, request_thread, (void*)i);
+        }
+        
+        cout << "Creating worker threads...\n";
+        for(int i = 0; i < num_worker_threads; i++){
+            string reply = chan.send_request("newthread");
+            RequestChannel* channel = new RequestChannel(reply, RequestChannel::CLIENT_SIDE);
+            pthread_create(&worker_threads[i], NULL, worker_thread, channel);
+        }
+        
+        cout << "Creating stats threads...\n";
+        for(int i = 0; i < num_request_threads; i++){
+            pthread_create(&stats_threads[i], NULL, stats_thread, (void*)i);
+        }
+        
+        // Join threads
+        
+        
+        string quit_reply = chan.send_request("quit");
+        cout << "Reply to request 'quit' is '" << quit_reply << "'" << endl;
+        sleep(1); // Waits until server fork is closed
+        
+        // Echo out statistics and histogram here
+    }
 }

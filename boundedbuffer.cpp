@@ -2,37 +2,36 @@
 
 BoundedBuffer::BoundedBuffer(int _size){
     int size = _size;
-    full = Semaphore(0);
-    empty = Semaphore(size);
-    mut = Semaphore(1);
+    full = new Semaphore(0);
+    empty = new Semaphore(size);
+    mut = new Semaphore(1);
     
 }
 
 BoundedBuffer::~BoundedBuffer(){
-    delete size;
     delete full;
     delete empty;
     delete mut;
     delete data;
 }
 
-void BoundedBuffer::push(string item){
-    empty.P(); // When this returns we know for a fact it is empty and ready for manipulation
+void BoundedBuffer::push(Response item){
+    empty->P(); // When this returns we know for a fact it is empty and ready for manipulation
     
-    mut.P(); // Lock with semaphore of size 1, preventing others from using it
+    mut->P(); // Lock with semaphore of size 1, preventing others from using it
     data.push_back(item); // NOW we can safely change the data
-    mut.v(); // Unlock to resume modifications
+    mut->v(); // Unlock to resume modifications
     
-    full.V();
+    full->V();
 }
 
-string BoundedBuffer::pop(){
-    full.P();
+Response BoundedBuffer::pop(){
+    full->P();
     
-    mut.P(); // Lock with semaphore of size 1, preventing others from using it
-    string output = data.pop_back(item); // NOW we can safely change the data
-    mut.v(); // Unlock to resume modifications
+    mut->P(); // Lock with semaphore of size 1, preventing others from using it
+    Response output = data.pop_back(); // NOW we can safely change the data
+    mut->v(); // Unlock to resume modifications
     
-    empty.V();
+    empty->V();
     return output;
 }
