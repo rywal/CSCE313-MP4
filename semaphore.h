@@ -72,7 +72,8 @@ public:
         
         value--;
         if(value < 0)
-            pthread_cond_wait(&c, &m);
+            if((error = pthread_cond_wait(&c, &m)) != 0)
+                return error;
         
         if((error = pthread_mutex_unlock(&m)) != 0)
             return error;
@@ -86,7 +87,8 @@ public:
             return error;
         value++;
         if(value <= 0)
-            pthread_cond_wait(&c, &m);
+            if((error = pthread_cond_signal(&c)) != 0)
+                return error;
         if((error = pthread_mutex_unlock(&m)) != 0)
             return error;
         return value;

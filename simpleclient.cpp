@@ -49,8 +49,8 @@ int num_request_threads = NUM_PEOPLE;
 int request_counts[NUM_PEOPLE];
 
 int num_requests = 10000;
-int num_worker_threads = 40;
-int buffer_size = 100;
+int num_worker_threads = 15;
+int buffer_size = 300;
 
 BoundedBuffer *buffer;
 BoundedBuffer *response_buffers[NUM_PEOPLE];
@@ -82,8 +82,6 @@ void* request_thread(void* req_id) {
         buffer->push(res);
     }
     
-    //cout << "Performed " << num_requests << " requests for req_id " << request_id << ". Exiting request thread...\n";
-
     return 0;
 }
 
@@ -96,31 +94,33 @@ void* worker_thread(void* channel_id) {
     while(true){
         // Pull next response from buffer
         response = buffer->pop();
-        
+        //cout << "Response: " << response.data << "\n";
         // Quit if told to
         if(response.data == "quit") break;
-        
+    
         // Send request, and save response to appropriate buffer
         string reply = channel->send_request(response.data);
+        response.data = reply;
         response_buffers[response.req_id]->push(response);
     }
     channel->send_request("quit");
-    //cout << "Worker thread for channel " << channel_id << " quit\n";
     
     return 0;
 }
 
 // Function to be performed by stats thread
 void* stats_thread(void* req_id) {
+    cout << "Opened stats_thread for req_id: " << *((int*)req_id) << "\n";
     int request_id = *((int *)req_id);
     
     Response res("something", -1, -1);
     for(int i = 0; i < num_requests; i++){
         res = response_buffers[request_id]->pop();
-        histograms[request_id][atoi(res.data.c_str())]++;
+        histograms[request_id][atoi(res.data.c_str())]+=1;
+        cout << "popped a request" << request_id << ":" << i  << " Data: " << res.data << "\n";
     }
     
-    //cout << "Stats thread for request " << request_id << " finished\n";
+    cout << "Stats thread for request " << request_id << " finished\n";
     
     return 0;
 }
@@ -145,7 +145,7 @@ int main(int argc, char * argv[]) {
     int pid = fork();
     if (pid == 0) {
         //this process is the 'child', so run the dataserver
-        system("./dataserver");
+        system("./dataserver > /dev/null");
     } else {
         cout << "CLIENT STARTED:" << endl;
 
@@ -155,38 +155,51 @@ int main(int argc, char * argv[]) {
 
         cout << "Creating request threads...\n";
         for(int i = 0; i < num_request_threads; i++){
-            //cout << "Creating request thread with ID " << i << "\n";
             pthread_create(&request_threads[i], NULL, request_thread, (void*)name_ids[i]);
+        }
+        
+        // Create new channels prior to creating the worker threads to avoid deadlock issue
+        RequestChannel* channels[num_worker_threads];
+        for(int i=0; i < num_worker_threads; i++){
+            string reply = chan.send_request("newthread");
+            channels[i] = new RequestChannel(reply, RequestChannel::CLIENT_SIDE);
         }
         
         cout << "Creating worker threads...\n";
         for(int i = 0; i < num_worker_threads; i++){
-            string reply = chan.send_request("newthread");
-            RequestChannel* channel = new RequestChannel(reply, RequestChannel::CLIENT_SIDE);
-            pthread_create(&worker_threads[i], NULL, worker_thread, (void*)channel);
+            pthread_create(&worker_threads[i], NULL, worker_thread, channels[i]);
         }
         
         cout << "Creating stats threads...\n";
         for(int i = 0; i < num_request_threads; i++){
             pthread_create(&stats_threads[i], NULL, stats_thread, (void*)name_ids[i]);
         }
+        cout << "done\n";
         
+        cout << "Joining request threads\n";
         // Join threads
-        for (int i = 0; i < num_request_threads; i ++)
+        for (int i = 0; i < num_request_threads; ++i){
             pthread_join(request_threads[i], NULL);
+        }
+        cout << "done\n";
         
         cout << "Stopping worker and stats threads...\n";
         Response quit_response("quit", -1, -1);
         for(int i = 0; i < num_worker_threads; i++)
             buffer->push(quit_response);
+        cout << "Added quits to buffer\n";
+        
         for(int i = 0; i < num_worker_threads; i++)
             pthread_join(worker_threads[i], NULL);
+        cout << "Joined worker threads\n";
+        
         for(int i = 0; i < num_request_threads; i++)
             pthread_join(stats_threads[i], NULL);
+        cout << "Joined stats threads\n";
         
         string quit_reply = chan.send_request("quit");
         cout << "Reply to request 'quit' is '" << quit_reply << "'" << endl;
-        //sleep(1); // Waits until server fork is closed
+        sleep(1); // Waits until server fork is closed
         
         // Echo out statistics and histogram here
         cout << "Finished\n";
