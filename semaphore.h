@@ -71,9 +71,11 @@ public:
             return error;
         
         value--;
-        if(value < 0)
-            if((error = pthread_cond_wait(&c, &m)) != 0)
-                return error;
+        if(value < 0){
+            cout << "(\n";
+            pthread_cond_wait(&c, &m);
+            cout << ")\n";
+        }
         
         if((error = pthread_mutex_unlock(&m)) != 0)
             return error;
@@ -87,8 +89,7 @@ public:
             return error;
         value++;
         if(value <= 0)
-            if((error = pthread_cond_signal(&c)) != 0)
-                return error;
+            pthread_cond_signal(&c);
         if((error = pthread_mutex_unlock(&m)) != 0)
             return error;
         return value;

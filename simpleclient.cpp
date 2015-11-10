@@ -50,7 +50,7 @@ int request_counts[NUM_PEOPLE];
 
 int num_requests = 10000;
 int num_worker_threads = 15;
-int buffer_size = 300;
+int buffer_size = 800;
 
 BoundedBuffer *buffer;
 BoundedBuffer *response_buffers[NUM_PEOPLE];
@@ -78,7 +78,7 @@ void* request_thread(void* req_id) {
         request_counts[request_id]++;
         res.data = "data " + request_names[request_id];
         res.req_id = request_id;
-        res.req_number = request_counts[request_id];
+        res.req_number = i;
         buffer->push(res);
     }
     
@@ -104,23 +104,29 @@ void* worker_thread(void* channel_id) {
         response_buffers[response.req_id]->push(response);
     }
     channel->send_request("quit");
-    
     return 0;
 }
 
 // Function to be performed by stats thread
 void* stats_thread(void* req_id) {
-    cout << "Opened stats_thread for req_id: " << *((int*)req_id) << "\n";
+    //cout << "Opened stats_thread for req_id: " << *((int*)req_id) << "\n";
     int request_id = *((int *)req_id);
     
     Response res("something", -1, -1);
-    for(int i = 0; i < num_requests; i++){
+    cout << "$";
+    while(true){
         res = response_buffers[request_id]->pop();
-        histograms[request_id][atoi(res.data.c_str())]+=1;
-        cout << "popped a request" << request_id << ":" << i  << " Data: " << res.data << "\n";
+        if((atoi(res.data.c_str()) < 100 && atoi(res.data.c_str()) >= 0) && res.data != "bye"){
+            histograms[request_id][atoi(res.data.c_str())]+=1;
+        }else{
+            cout << "**\n";
+            break;
+        }
+        cout << "Popped " << request_id << ":" << res.req_number  << " Data: " << res.data << "\n";
     }
     
     cout << "Stats thread for request " << request_id << " finished\n";
+    cout << "@";
     
     return 0;
 }
@@ -157,31 +163,35 @@ int main(int argc, char * argv[]) {
         for(int i = 0; i < num_request_threads; i++){
             pthread_create(&request_threads[i], NULL, request_thread, (void*)name_ids[i]);
         }
+        cout << "-- done\n";
         
         // Create new channels prior to creating the worker threads to avoid deadlock issue
+        cout << "Creating channels for worker threads...\n";
         RequestChannel* channels[num_worker_threads];
         for(int i=0; i < num_worker_threads; i++){
             string reply = chan.send_request("newthread");
             channels[i] = new RequestChannel(reply, RequestChannel::CLIENT_SIDE);
         }
+        cout << "-- done\n";
         
         cout << "Creating worker threads...\n";
         for(int i = 0; i < num_worker_threads; i++){
             pthread_create(&worker_threads[i], NULL, worker_thread, channels[i]);
         }
+        cout << "-- done\n";
         
         cout << "Creating stats threads...\n";
         for(int i = 0; i < num_request_threads; i++){
             pthread_create(&stats_threads[i], NULL, stats_thread, (void*)name_ids[i]);
         }
-        cout << "done\n";
+        cout << "-- done\n";
         
-        cout << "Joining request threads\n";
+        cout << "Waiting on request threads\n";
         // Join threads
         for (int i = 0; i < num_request_threads; ++i){
             pthread_join(request_threads[i], NULL);
         }
-        cout << "done\n";
+        cout << "Finished: request threads\n";
         
         cout << "Stopping worker and stats threads...\n";
         Response quit_response("quit", -1, -1);
@@ -191,11 +201,12 @@ int main(int argc, char * argv[]) {
         
         for(int i = 0; i < num_worker_threads; i++)
             pthread_join(worker_threads[i], NULL);
-        cout << "Joined worker threads\n";
+        cout << "Finished: worker threads\n";
         
+        cout << "Waiting on stats threads\n";
         for(int i = 0; i < num_request_threads; i++)
             pthread_join(stats_threads[i], NULL);
-        cout << "Joined stats threads\n";
+        cout << "Finished: stats threads\n";
         
         string quit_reply = chan.send_request("quit");
         cout << "Reply to request 'quit' is '" << quit_reply << "'" << endl;
