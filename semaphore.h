@@ -65,33 +65,23 @@ public:
     /* -- SEMAPHORE OPERATIONS */
 
     int P(){
-        int error;
-        
-        if((error = pthread_mutex_lock(&m)) != 0)
-            return error;
-        
+        pthread_mutex_lock(&m);
         value--;
         if(value < 0){
-            cout << "(\n";
             pthread_cond_wait(&c, &m);
-            cout << ")\n";
         }
         
-        if((error = pthread_mutex_unlock(&m)) != 0)
-            return error;
+        pthread_mutex_unlock(&m);
         
         return value;
     }
     
     int V(){
-        int error;
-        if((error = pthread_mutex_lock(&m)) != 0)
-            return error;
+        pthread_mutex_lock(&m);
         value++;
         if(value <= 0)
             pthread_cond_signal(&c);
-        if((error = pthread_mutex_unlock(&m)) != 0)
-            return error;
+        pthread_mutex_unlock(&m);
         return value;
     }
 };

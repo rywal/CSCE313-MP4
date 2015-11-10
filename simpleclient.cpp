@@ -113,21 +113,16 @@ void* stats_thread(void* req_id) {
     int request_id = *((int *)req_id);
     
     Response res("something", -1, -1);
-    cout << "$";
-    while(true){
+    for(int i = 0; i < num_requests; i++){
         res = response_buffers[request_id]->pop();
         if((atoi(res.data.c_str()) < 100 && atoi(res.data.c_str()) >= 0) && res.data != "bye"){
             histograms[request_id][atoi(res.data.c_str())]+=1;
         }else{
-            cout << "**\n";
             break;
         }
-        cout << "Popped " << request_id << ":" << res.req_number  << " Data: " << res.data << "\n";
     }
     
-    cout << "Stats thread for request " << request_id << " finished\n";
-    cout << "@";
-    
+    pthread_exit(NULL);
     return 0;
 }
 

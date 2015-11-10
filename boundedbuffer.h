@@ -7,7 +7,7 @@
 #define _boundedbuffer_H_
 
 #include <string>
-#include <vector>
+#include <queue>
 #include "semaphore.h"
 
 using namespace std;
@@ -33,7 +33,7 @@ private:
     Semaphore* mut;
     
     int size;
-    vector<Response> data; // Main data structure that we want to make thread-safe
+    queue<Response> data; // Main data structure that we want to make thread-safe
     
 public:
     BoundedBuffer() { }
@@ -56,7 +56,7 @@ public:
         empty->P(); // When this returns we know for a fact it is empty and ready for manipulation
         
         mut->P(); // Lock with semaphore of size 1, preventing others from using it
-        data.push_back(item); // NOW we can safely change the data
+        data.push(item); // NOW we can safely change the data
         mut->V(); // Unlock to resume modifications
         
         full->V();
@@ -66,8 +66,8 @@ public:
         full->P();
         
         mut->P(); // Lock with semaphore of size 1, preventing others from using it
-        Response output = data.back(); // NOW we can safely change the data
-        data.pop_back();
+        Response output = data.front(); // NOW we can safely change the data
+        data.pop();
         mut->V(); // Unlock to resume modifications
         
         empty->V();
