@@ -26,9 +26,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <vector>
+#include <iomanip>
 
 #include <errno.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include "reqchannel.h"
 #include "boundedbuffer.h"
@@ -131,6 +133,25 @@ void* stats_thread(void* req_id) {
 /*--------------------------------------------------------------------------*/
 
 int main(int argc, char * argv[]) {
+    int opt;
+    while ((opt = getopt(argc, argv, "n:b:w:")) != -1) {
+        switch (opt) {
+            case 'n':
+                num_requests = atoi(optarg);
+                break;
+            case 'b':
+                buffer_size = atoi(optarg);
+                break;
+            case 'w':
+                num_worker_threads = atoi(optarg);
+                break;
+            default:
+                num_requests = 10000;
+                buffer_size = 300;
+                num_worker_threads = 15;
+        }
+    }
+
     pthread_t request_threads[NUM_PEOPLE];
     pthread_t worker_threads[num_worker_threads];
     pthread_t stats_threads[NUM_PEOPLE];
@@ -208,6 +229,12 @@ int main(int argc, char * argv[]) {
         sleep(1); // Waits until server fork is closed
         
         // Echo out statistics and histogram here
-        cout << "Finished\n";
+        cout << "Finished!\n\n";
+        cout << "------------------\n";
+        cout << "    Statistics    \n\n";
+        cout << "------------------\n";
+        cout << setw(20) << "Data requests per person: " << num_requests << "\n";
+        cout << setw(20) << "Size of bounded buffer: " << buffer_size << "\n";
+        cout << setw(20) << "Worker threads:" << num_worker_threads << "\n";
     }
 }
