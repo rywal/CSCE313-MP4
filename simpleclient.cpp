@@ -59,8 +59,10 @@ int buffer_size = 800;
 BoundedBuffer *buffer;
 BoundedBuffer *response_buffers[NUM_PEOPLE];
 
-int histograms[NUM_PEOPLE][100]; // 100 possible numbers for each of the request threads
+int histograms[NUM_PEOPLE][100] = {}; // 100 possible numbers for each of the request threads
 int* name_ids[NUM_PEOPLE];
+
+const string request_names[] = {"Joe Smith", "Jane Smith", "John Doe"};
 
 // Declare execution time handling variables
 high_resolution_clock::time_point start_time, end_time; // Handle start and end timepoints
@@ -75,11 +77,42 @@ double runtime; // Difference in start and end times
 /*--------------------------------------------------------------------------*/
 /* FORWARDS */
 /*--------------------------------------------------------------------------*/
+void print_histograms(){
+    for(int i = 0; i < NUM_PEOPLE; i++){
+        cout << "                      Histogram for Person " << i << ": " << request_names[i] << endl;
+        
+        int possible_results = 100;
+        int grouped_responses[100] = {};
+        for(int x = 0; x < 10; x++){
+            for(int y = 0; y < 10; y++){
+                int current_number = histograms[i][x*10 + y];
+                grouped_responses[x] += current_number;
+            }
+        }
+        
+        // Grouped results, now they need to be displayed
+        cout << setw(7) << "0-9"
+             << setw(7) << "10-19"
+             << setw(7) << "20-29"
+             << setw(7) << "30-39"
+             << setw(7) << "40-49"
+             << setw(7) << "50-59"
+             << setw(7) << "60-69"
+             << setw(7) << "70-79"
+             << setw(7) << "80-89"
+             << setw(7) << "90-99" << "\n";
+        
+        for(int c = 0; c < 10; c++){
+            cout << setw(7) << grouped_responses[c];
+        }
+        cout << "\n\n\n";
+    }
+}
+
 // Function to be performed by request thread
 void* request_thread(void* req_id) {
 //    printf("Request thread id is %i\n", req_id);
     int request_id = *((int*) req_id);
-    const string request_names[] = {"Joe Smith", "Jane Smith", "John Doe"};
     
     for(int i = 0; i < num_requests; i++){
         Response res = Response("something", request_id, 0);
@@ -256,5 +289,6 @@ int main(int argc, char * argv[]) {
         cout << "\n\n------------------------------\n";
         cout << "           Histogram          \n";
         cout << "------------------------------\n";
+        print_histograms();
     }
 }
