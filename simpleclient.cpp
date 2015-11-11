@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <chrono> // Added to measure time of requests
 
 #include "reqchannel.h"
 #include "boundedbuffer.h"
@@ -38,6 +39,7 @@
 #define NUM_PEOPLE 3
 
 using namespace std;
+using namespace std::chrono;
 
 /*--------------------------------------------------------------------------*/
 /* DATA STRUCTURES */ 
@@ -59,6 +61,10 @@ BoundedBuffer *response_buffers[NUM_PEOPLE];
 
 int histograms[NUM_PEOPLE][100]; // 100 possible numbers for each of the request threads
 int* name_ids[NUM_PEOPLE];
+
+// Declare execution time handling variables
+high_resolution_clock::time_point start_time, end_time; // Handle start and end timepoints
+double runtime; // Difference in start and end times
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -175,6 +181,9 @@ int main(int argc, char * argv[]) {
         RequestChannel chan("control", RequestChannel::CLIENT_SIDE);
         cout << "done." << endl;;
 
+        // Start time calculation
+        start_time = high_resolution_clock::now();
+        
         cout << "Creating request threads...\n";
         for(int i = 0; i < num_request_threads; i++){
             pthread_create(&request_threads[i], NULL, request_thread, (void*)name_ids[i]);
@@ -224,17 +233,28 @@ int main(int argc, char * argv[]) {
             pthread_join(stats_threads[i], NULL);
         cout << "Finished: stats threads\n";
         
+        // End time calculation
+        end_time = high_resolution_clock::now();
+        runtime = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        runtime = runtime/1000;
+        
         string quit_reply = chan.send_request("quit");
         cout << "Reply to request 'quit' is '" << quit_reply << "'" << endl;
         sleep(1); // Waits until server fork is closed
         
-        // Echo out statistics and histogram here
+        // Echo out statistics
         cout << "Finished!\n\n";
-        cout << "------------------\n";
-        cout << "    Statistics    \n\n";
-        cout << "------------------\n";
-        cout << setw(20) << "Data requests per person: " << num_requests << "\n";
-        cout << setw(20) << "Size of bounded buffer: " << buffer_size << "\n";
-        cout << setw(20) << "Worker threads:" << num_worker_threads << "\n";
+        cout << "------------------------------\n";
+        cout << "           Statistics         \n";
+        cout << "------------------------------\n";
+        cout << "Data requests per person: " << num_requests << "\n";
+        cout << "Size of bounded buffer:   " << buffer_size << "\n";
+        cout << "Worker threads:           " << num_worker_threads << "\n";
+        cout << "Run Time:                 " << runtime << "s\n";
+        
+        // Echo out histogram
+        cout << "\n\n------------------------------\n";
+        cout << "           Histogram          \n";
+        cout << "------------------------------\n";
     }
 }
